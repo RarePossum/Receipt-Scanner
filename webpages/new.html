@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload and Submit</title>
+</head>
+<body>
+  <h1>Upload File</h1>
+  <form id="uploadForm">
+    <input type="file" name="file" id="fileInput">
+    <button type="submit">Upload</button>
+  </form>
+
+  <h2>Generated Form</h2>
+  <form id="dynamicForm" style="display:none;">
+    <div id="formFields"></div>
+    <button type="submit">Submit</button>
+  </form>
+
+  <script>
+    const uploadForm = document.getElementById('uploadForm');
+    const dynamicForm = document.getElementById('dynamicForm');
+    const formFields = document.getElementById('formFields');
+
+    uploadForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const formData = new FormData(uploadForm);
+      const response = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await response.json();
+
+      formFields.innerHTML = '';
+      for (const key in data) {
+        const label = document.createElement('label');
+        label.textContent = key;
+        const input = document.createElement('input');
+        input.name = key;
+        input.value = data[key];
+        formFields.appendChild(label);
+        formFields.appendChild(input);
+        formFields.appendChild(document.createElement('br'));
+      }
+
+      dynamicForm.style.display = 'block';
+    };
+
+    dynamicForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const formData = new FormData(dynamicForm);
+      const jsonObject = {};
+      formData.forEach((value, key) => jsonObject[key] = value);
+
+      await fetch('/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jsonObject)
+      });
+
+      alert("Data submitted to database!");
+    };
+  </script>
+</body>
+</html>

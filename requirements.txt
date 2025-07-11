@@ -1,0 +1,5 @@
+docling
+python-magic-bin # for windows
+python-magic # for linux
+llama-cpp-python
+transformers
