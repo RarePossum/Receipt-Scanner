@@ -20,42 +20,125 @@
     const uploadForm = document.getElementById('uploadForm');
     const dynamicForm = document.getElementById('dynamicForm');
     const formFields = document.getElementById('formFields');
-
+  
+    let itemsContainer;
+  
     uploadForm.onsubmit = async (e) => {
       e.preventDefault();
       const formData = new FormData(uploadForm);
       const response = await fetch('/upload', { method: 'POST', body: formData });
       const data = await response.json();
-
+  
       formFields.innerHTML = '';
-      for (const key in data) {
-        const label = document.createElement('label');
-        label.textContent = key;
-        const input = document.createElement('input');
-        input.name = key;
-        input.value = data[key];
-        formFields.appendChild(label);
-        formFields.appendChild(input);
-        formFields.appendChild(document.createElement('br'));
+  
+      // Add general fields
+      const generalFields = ['store', 'date', 'shipping', 'total'];
+      generalFields.forEach(key => {
+        if (data[key] !== undefined) {
+          const label = document.createElement('label');
+          label.textContent = key;
+          const input = document.createElement('input');
+          input.name = key;
+          input.value = data[key];
+          formFields.appendChild(label);
+          formFields.appendChild(input);
+          formFields.appendChild(document.createElement('br'));
+        }
+      });
+  
+      // Work-related checkbox
+      const workLabel = document.createElement('label');
+      workLabel.textContent = 'Work Related';
+      const workCheckbox = document.createElement('input');
+      workCheckbox.type = 'checkbox';
+      workCheckbox.name = 'work_related';
+      formFields.appendChild(workLabel);
+      formFields.appendChild(workCheckbox);
+      formFields.appendChild(document.createElement('br'));
+  
+      // Item list
+      const itemListHeader = document.createElement('h3');
+      itemListHeader.textContent = 'Items';
+      formFields.appendChild(itemListHeader);
+  
+      itemsContainer = document.createElement('div');
+      itemsContainer.id = 'itemsContainer';
+      formFields.appendChild(itemsContainer);
+  
+      if (Array.isArray(data.items)) {
+        data.items.forEach(item => addItemRow(item));
       }
-
+  
+      // Add "Add Item" button
+      const addButton = document.createElement('button');
+      addButton.type = 'button';
+      addButton.textContent = 'Add Item';
+      addButton.onclick = () => addItemRow();
+      formFields.appendChild(addButton);
+  
       dynamicForm.style.display = 'block';
     };
-
+  
+    function addItemRow(item = {}) {
+      const itemRow = document.createElement('div');
+      itemRow.className = 'item-row';
+  
+      ['name', 'price', 'quantity', 'subtotal'].forEach(field => {
+        const input = document.createElement('input');
+        input.placeholder = field;
+        input.name = `item_${field}`;
+        input.value = item[field] !== undefined ? item[field] : '';
+        itemRow.appendChild(input);
+      });
+  
+      // Remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.onclick = () => itemRow.remove();
+      itemRow.appendChild(removeBtn);
+  
+      itemsContainer.appendChild(itemRow);
+    }
+  
     dynamicForm.onsubmit = async (e) => {
       e.preventDefault();
-      const formData = new FormData(dynamicForm);
+  
       const jsonObject = {};
-      formData.forEach((value, key) => jsonObject[key] = value);
-
+      const formData = new FormData(dynamicForm);
+  
+      // Extract general fields
+      for (let [key, value] of formData.entries()) {
+        if (!key.startsWith('item_') && key !== 'work_related') {
+          jsonObject[key] = value;
+        }
+      }
+  
+      // Extract work_related
+      jsonObject['work_related'] = formData.has('work_related');
+  
+      // Extract item rows
+      const itemRows = document.querySelectorAll('.item-row');
+      jsonObject['items'] = Array.from(itemRows).map(row => {
+        const inputs = row.querySelectorAll('input[name^="item_"]');
+        const item = {};
+        inputs.forEach(input => {
+          const key = input.name.replace('item_', '');
+          const value = input.value;
+          item[key] = isNaN(value) || value.trim() === '' ? value : parseFloat(value);
+        });
+        return item;
+      });
+  
       await fetch('/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jsonObject)
       });
-
+  
       alert("Data submitted to database!");
     };
   </script>
+
 </body>
 </html>

@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import database_funcs
+import ai_actions
 import os
-import sqlite3
 import json
 import uuid
 import cgi # import legacy-cgi for python 3.13 onwards
@@ -9,35 +10,36 @@ from docling.document_converter import DocumentConverter
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 hostName = "localhost"
-serverPort = 1234
+port = 1234
 prompt = """Provide a JSON of this receipt, including the store, the quantity of each item with the unit, subtotal, total prices along with date if possible. The format of the json should be similar to the following. Do not include backticks
 {
-  "store": "NAME",
-  "date": "YYYY-MM-DD",
+  "store": "name",
+  "date": "2002-07-31",
   "items": [
       { "name": "name",
-         "price": 123.00,
-         "quantity": 1,
-         "subtotal": 123.00,
+         "price": 12345,
+         "quantity": 1.2,
+         "subtotal": 123.45,
        }
    ],
- "shipping": 123.00,
-  "total": 123.00,
-}"""
+ "shipping": 123.45,
+  "total": 123.45,
+}
+Rember to use YYYY-MM-DD date format."""
 
-class MyServer(BaseHTTPRequestHandler):
+class Server(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        filepath = os.path.dirname(__file__)
+        filepath = os.path.join(os.path.dirname(__file__), "webpages")
         match self.path:
             case "/new":
-                filepath = os.path.join(os.path.join(os.path.dirname(__file__), "webpages"), "new.html")
+                filepath = os.path.join(filepath, "new.html")
             case "/db":
-                filepath = os.path.join(os.path.join(os.path.dirname(__file__), "webpages"), "db.html")
+                filepath = os.path.join(filepath, "db.html")
             case _:
-                filepath = os.path.join(os.path.join(os.path.dirname(__file__), "webpages"), "index.html")
+                filepath = os.path.join(filepath, "index.html")
         f = open(filepath, "rb")
         self.wfile.write(f.read(32768))
         
@@ -52,22 +54,17 @@ class MyServer(BaseHTTPRequestHandler):
             
             if upload_file.filename:
                 file_data = upload_file.file.read()
-                self.send_response(200)
                 id = uuid.uuid4()
                 file_type = magic.from_buffer(file_data, mime = True).split("/")[1]
                 file_name = str(id) + "." + file_type
+                
+                database_funcs.add_file(str(id), file_type, file_data)
+                
                 with open(file_name, "wb") as f:
                     f.write(file_data)
                 converter = DocumentConverter()
                 doc = converter.convert(file_name).document
                 os.remove(file_name)
-                
-                tokenizer = AutoTokenizer.from_pretrained("./model")
-                model = AutoModelForCausalLM.from_pretrained(
-                    "./model",
-                    device_map="auto",  
-                    torch_dtype="auto"  
-                )
                 
                 messages = [
                     {
@@ -80,47 +77,28 @@ class MyServer(BaseHTTPRequestHandler):
                     },
                 ]
                 
-                text = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize = False,
-                    add_generation_prompt = True,
-                    enable_thinking = False,
-                )
-                
-                model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
-
-                generated_ids = model.generate(
-                    **model_inputs,
-                    max_new_tokens=32768
-                )
-                output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
-                content = tokenizer.decode(output_ids, skip_special_tokens=True).strip("\n")
-                print(content)
+                content = ai_actions.get_json(messages)                
+            
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(content.encode("utf-8"))
             
             else: 
-                self.send_response(400)
+                self.send_response(415)
         
         # elif self.path == "/submit":
         
         # elif self.path == "retrain":    
 
 if __name__ == "__main__":        
-
-    con = sqlite3.connect("db.sqlite3")
-    cur = con.cursor()
-    cur.execute("CREATE TABLE IF NOT EXISTS files (id VARCHAR(36) PRIMARY KEY, file_type VARCHAR(6), file BLOB(32768));")
-    cur.execute("CREATE TABLE IF NOT EXISTS receipts (id VARCHAR(36) PRIMARY KEY, merchant TEXT, date TEXT, total INTEGER, is_work INTEGER, receipt VARCHAR(32768));")
     
-    filepath = os.path.join(os.path.dirname(__file__), "model")
-    if not os.path.isdir(filepath):  
-        print("Downloading Qwen3-0.6B as no model found")
-        tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
-        model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
-        tokenizer.save_pretrained("./model")
-        model.save_pretrained("./model")
+    ai_actions.model_preparation()
     
-    webServer = HTTPServer((hostName, serverPort), MyServer)
-    print("Server started http://%s:%s" % (hostName, serverPort))
+    database_funcs.db_establish()
+    
+    webServer = HTTPServer((hostName, port), Server)
+    print("Server started http://%s:%s" % (hostName, port))
     try:
         webServer.serve_forever()
     except KeyboardInterrupt:
@@ -128,3 +106,4 @@ if __name__ == "__main__":
         
     webServer.server_close()
     print("Server stopped")
+    
