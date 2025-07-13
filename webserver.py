@@ -11,23 +11,20 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 hostName = "localhost"
 port = 1234
-prompt = """Provide a JSON of this receipt, including the store, the quantity of each item with the unit, subtotal, total prices along with date if possible. The format of the json should be similar to the following. Do not include backticks
-{
-  "store": "name",
-  "date": "2002-07-31",
-  "items": [
-      { "name": "name",
-         "price": 12345,
-         "quantity": 1.2,
-         "subtotal": 123.45,
-       }
-   ],
- "shipping": 123.45,
-  "total": 123.45,
-}
-Rember to use YYYY-MM-DD date format."""
 
 class Server(BaseHTTPRequestHandler):
+    
+    tokenizer = AutoTokenizer.from_pretrained("./model")
+    model = AutoModelForCausalLM.from_pretrained(
+        "./model",
+        device_map="auto",  
+        torch_dtype="auto"  
+    )
+    
+    converter = DocumentConverter()
+    
+    id = str(uuid.uuid4())[:8] + "a"
+    
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
@@ -51,34 +48,24 @@ class Server(BaseHTTPRequestHandler):
                 environ={'REQUEST_METHOD': 'POST'}
             )
             upload_file = form["file"]
-            
+            self.id = str(uuid.uuid4())[:8] + "a"
             if upload_file.filename:
                 file_data = upload_file.file.read()
-                id = uuid.uuid4()
-                file_type = magic.from_buffer(file_data, mime = True).split("/")[1]
-                file_name = str(id) + "." + file_type
                 
-                database_funcs.add_file(str(id), file_type, file_data)
+                file_type = magic.from_buffer(file_data, mime = True).split("/")[1]
+                file_name = self.id + "." + file_type
+                
+                database_funcs.add_file(self.id, file_type, file_data)
                 
                 with open(file_name, "wb") as f:
                     f.write(file_data)
-                converter = DocumentConverter()
-                doc = converter.convert(file_name).document
+                
+                doc = self.converter.convert(file_name).document
                 os.remove(file_name)
                 
-                messages = [
-                    {
-                        "role": "system",
-                        "content": prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": str(doc.export_to_markdown()) + "This data was extracted from a " + file_type,
-                    },
-                ]
-                
-                content = ai_actions.get_json(messages)                
-            
+                messages = ai_actions.create_messages(str(doc.export_to_markdown()), file_type)                
+                content = ai_actions.get_json(messages, self.tokenizer, self.model)                
+
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -87,9 +74,17 @@ class Server(BaseHTTPRequestHandler):
             else: 
                 self.send_response(415)
         
-        # elif self.path == "/submit":
+        elif self.path == "/submit":
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            form_data = json.loads(post_data.decode("utf-8"))
+            
+            database_funcs.add_receipt(form_data, self.id)
+            database_funcs.create_itemised_receipt(form_data["items"], self.id)
+            
+            self.send_response(200)
         
-        # elif self.path == "retrain":    
+        # elif self.path == "/retrain":    
 
 if __name__ == "__main__":        
     
