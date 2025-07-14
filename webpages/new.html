@@ -32,7 +32,7 @@
       formFields.innerHTML = '';
   
       // Add general fields
-      const generalFields = ['store', 'date', 'shipping', 'total'];
+      const generalFields = ['id', 'store', 'date', 'shipping', 'total'];
       generalFields.forEach(key => {
         if (data[key] !== undefined) {
           const label = document.createElement('label');
@@ -43,6 +43,10 @@
           formFields.appendChild(label);
           formFields.appendChild(input);
           formFields.appendChild(document.createElement('br'));
+          if (key == 'id') {
+              label.style.display = 'none';
+              input.style.display = 'none';
+          }
         }
       });
   

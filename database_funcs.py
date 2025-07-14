@@ -23,18 +23,19 @@ def add_file(id, type, file, scan):
     con.commit()
     con.close()
     
-def add_receipt(form_data, id):
+def add_receipt(form_data):
     con = sqlite3.connect("db.sqlite3")
     cur = con.cursor()
     
+    id = form_data["id"]
     merchant = form_data["store"]
     date = form_data["date"]
     total = form_data["total"]
     is_work = 0
     if form_data["work_related"]:
         is_work = 1
-    
-    data = (id, merchant, date, total, is_work, str(form_data))
+        
+    data = (id, merchant, date, total, is_work, "{" + str(form_data)[19:])
     
     query = """
     INSERT INTO receipts (id, merchant, date, total, is_work, receipt)
@@ -50,7 +51,6 @@ def create_itemised_receipt(items, id):
     cur = con.cursor()
         
     query = "CREATE TABLE '" + id + "' (id INTEGER PRIMARY KEY AUTOINCREMENT, item VARCHAR(64), price REAL, quantity REAL, subtotal REAL);"
-    print(query)
     cur.execute(query)
     
     query = "INSERT INTO '" + id + "' (item, price, quantity, subtotal) VALUES (:name, :price, :quantity, :subtotal);"
