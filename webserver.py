@@ -122,9 +122,9 @@ class Server(BaseHTTPRequestHandler):
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             form_data = json.loads(post_data.decode("utf-8"))
-            
-            database_funcs.add_receipt(form_data)
             database_funcs.create_itemised_receipt(form_data["items"], form_data["id"])
+            database_funcs.add_receipt(form_data)
+            
             
             self.send_response(200)
         

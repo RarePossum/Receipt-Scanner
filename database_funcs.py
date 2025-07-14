@@ -34,8 +34,9 @@ def add_receipt(form_data):
     is_work = 0
     if form_data["work_related"]:
         is_work = 1
-        
-    data = (id, merchant, date, total, is_work, "{" + str(form_data)[19:])
+    
+    del form_data['id']
+    data = (id, merchant, date, total, is_work, str(form_data))
     
     query = """
     INSERT INTO receipts (id, merchant, date, total, is_work, receipt)
