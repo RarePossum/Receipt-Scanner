@@ -1,1 +1,92 @@
-<p>This is the home page. Please select what you would like to do.</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt Database</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    input, select { margin: 5px; padding: 5px; }
+    .filter-group { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Receipts</h1>
+
+  <div class="filter-group">
+    <label for="searchStore">Search:</label>
+    <input type="text" id="searchStore" placeholder="Type to search...">
+
+    <label for="workFilter">Work Related:</label>
+    <select id="workFilter">
+      <option value="">All</option>
+      <option value="true">Yes</option>
+      <option value="false">No</option>
+    </select>
+
+    <label for="dateFilter">Date after:</label>
+    <input type="date" id="dateFilter">
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Store</th>
+        <th>Date</th>
+        <th>Total</th>
+        <th>Work Related</th>
+      </tr>
+    </thead>
+    <tbody id="receiptTableBody">
+      <!-- rows go here -->
+    </tbody>
+  </table>
+
+  <script>
+    let receipts = [];
+
+    async function loadReceipts() {
+      const response = await fetch('/api/receipts'); 
+      receipts = await response.json();
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('receiptTableBody');
+      const searchTerm = document.getElementById('searchStore').value.toLowerCase();
+      const workFilter = document.getElementById('workFilter').value;
+      const dateFilter = document.getElementById('dateFilter').value;
+
+      tbody.innerHTML = '';
+
+      receipts.forEach(receipt => {
+        const { id, store, date, total, work_related, dump } = receipt;
+
+        if (searchTerm && !dump.toLowerCase().includes(searchTerm)) return;
+        if (workFilter && String(work_related) !== workFilter) return;
+        if (dateFilter && new Date(date) < new Date(dateFilter)) return;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><a href = "/${id}">${id}</a></td>
+          <td>${store}</td>
+          <td>${date}</td>
+          <td>$${parseFloat(total).toFixed(2)}</td>
+          <td>${work_related ? 'Yes' : 'No'}</td>
+          <td style="display:none;width=0px;padding:0px;border:0px;">${dump}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    document.getElementById('searchStore').addEventListener('input', renderTable);
+    document.getElementById('workFilter').addEventListener('change', renderTable);
+    document.getElementById('dateFilter').addEventListener('change', renderTable);
+
+    loadReceipts();
+  </script>
+</body>
+</html>

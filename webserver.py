@@ -3,6 +3,7 @@ import database_funcs
 import ai_actions
 import os
 import json
+import re
 import uuid
 import cgi # import legacy-cgi for python 3.13 onwards
 import magic
@@ -20,25 +21,71 @@ class Server(BaseHTTPRequestHandler):
         device_map="auto",  
         torch_dtype="auto"  
     )
-    
+        
     converter = DocumentConverter()
     
     id = str(uuid.uuid4())[:8] + "a"
     
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
+        
         filepath = os.path.join(os.path.dirname(__file__), "webpages")
         match self.path:
             case "/new":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
                 filepath = os.path.join(filepath, "new.html")
+                f = open(filepath, "rb")
+                self.wfile.write(f.read(32768))
+                
             case "/db":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
                 filepath = os.path.join(filepath, "db.html")
-            case _:
+                f = open(filepath, "rb")
+                self.wfile.write(f.read(32768))
+                
+            case "/api/receipts":
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()  
+                
+                receipts = database_funcs.get_receipts()
+                self.wfile.write(json.dumps(receipts).encode("utf-8"))
+                
+            case "/":
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
                 filepath = os.path.join(filepath, "index.html")
-        f = open(filepath, "rb")
-        self.wfile.write(f.read(32768))
+                f = open(filepath, "rb")
+                self.wfile.write(f.read(32768))
+                        
+            case _:
+                if re.match("\\/[0-9a-f]{8}a", self.path):
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html")
+                    self.end_headers()
+                    filepath = os.path.join(filepath, "index.html")
+                    f = open(filepath, "rb")
+                    self.wfile.write(f.read(32768))
+                    
+                elif re.match("\\/api\\/[0-9a-f]{8}a", self.path):
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html")
+                    self.end_headers()
+                    filepath = os.path.join(filepath, "index.html")
+                    f = open(filepath, "rb")
+                    self.wfile.write(f.read(32768))
+                
+                else:
+                    self.send_response(404)
+                    self.send_header("Content-type", "text/html")
+                    self.end_headers()
+                    filepath = os.path.join(filepath, "404.html")
+                    f = open(filepath, "rb")
+                    self.wfile.write(f.read(32768))
         
     def do_POST(self):
         if self.path == "/upload":
@@ -55,15 +102,14 @@ class Server(BaseHTTPRequestHandler):
                 file_type = magic.from_buffer(file_data, mime = True).split("/")[1]
                 file_name = self.id + "." + file_type
                 
-                database_funcs.add_file(self.id, file_type, file_data)
-                
                 with open(file_name, "wb") as f:
                     f.write(file_data)
                 
-                doc = self.converter.convert(file_name).document
+                doc = str(self.converter.convert(file_name).document.export_to_markdown())
+                database_funcs.add_file(self.id, file_type, file_data, doc)
                 os.remove(file_name)
                 
-                messages = ai_actions.create_messages(str(doc.export_to_markdown()), file_type)                
+                messages = ai_actions.create_messages(doc, file_type)                
                 content = ai_actions.get_json(messages, self.tokenizer, self.model)                
 
                 self.send_response(200)
@@ -84,6 +130,7 @@ class Server(BaseHTTPRequestHandler):
             
             self.send_response(200)
         
+            
         # elif self.path == "/retrain":    
 
 if __name__ == "__main__":        

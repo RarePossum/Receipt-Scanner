@@ -3,20 +3,20 @@ import sqlite3
 def db_establish():
     con = sqlite3.connect("db.sqlite3")
     cur = con.cursor()
-    cur.execute("CREATE TABLE IF NOT EXISTS files (id VARCHAR(9) PRIMARY KEY, file_type VARCHAR(6), file BLOB(32768));")
+    cur.execute("CREATE TABLE IF NOT EXISTS files (id VARCHAR(9) PRIMARY KEY, file_type VARCHAR(6), file BLOB(32768), scan VARCHAR(4096));")
     cur.execute("CREATE TABLE IF NOT EXISTS receipts (id VARCHAR(9) PRIMARY KEY, merchant TEXT, date TEXT, total REAL, is_work INTEGER, receipt VARCHAR(2048));")
     con.commit()
     con.close
     
-def add_file(id, type, file):
+def add_file(id, type, file, scan):
     con = sqlite3.connect("db.sqlite3")
     cur = con.cursor()
     
     query = """
-    INSERT INTO files (id, file_type, file)
-    VALUES (?, ?, ?)
+    INSERT INTO files (id, file_type, file, scan)
+    VALUES (?, ?, ?, ?)
     """
-    data = (id, type, file)
+    data = (id, type, file, scan)
     
     cur.execute(query, data)
     
@@ -59,3 +59,25 @@ def create_itemised_receipt(items, id):
     
     con.commit()
     con.close()
+    
+def get_receipts():
+    con = sqlite3.connect("db.sqlite3")
+    cur = con.cursor()
+    
+    query = "SELECT * FROM receipts ORDER BY date desc"
+    cur.execute(query)
+    rows = cur.fetchall()
+        
+    con.commit()
+    con.close()
+    return [
+            {
+                "id": row[0],
+                "store": row[1],
+                "date": row[2],
+                "total": row[3],
+                "work_related": bool(row[4]),
+                "dump": row[5]
+            }
+            for row in rows
+        ]
