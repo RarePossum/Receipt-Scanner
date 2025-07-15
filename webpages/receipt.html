@@ -1,56 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Upload and Submit</title>
+  <title>Receipt Informatiopn</title>
 </head>
 <body>
-  <h1>Upload File</h1>
-  <form id="uploadForm">
-    <input type="file" name="file" id="fileInput">
-    <button type="submit">Upload</button>
-  </form>
 
-  <h2>Generated Form</h2>
+  <h2>Receipt</h2>
   <form id="dynamicForm" style="display:none;">
     <div id="formFields"></div>
-    <button type="submit">Submit</button>
+    <button type="submit">Update</button>
   </form>
+  <button type="delete">Delete</button>
+  <button type="download">Download</button>
 
   <script>
     const uploadForm = document.getElementById('uploadForm');
     const dynamicForm = document.getElementById('dynamicForm');
     const formFields = document.getElementById('formFields');
   
-    let itemsContainer;
-  
-    uploadForm.onsubmit = async (e) => {
-      e.preventDefault();
-      const formData = new FormData(uploadForm);
-      const response = await fetch('/upload', { method: 'POST', body: formData });
-      const data = await response.json();
-  
-      formFields.innerHTML = '';
-  
-      // Add general fields
-      const generalFields = ['id', 'store', 'date', 'shipping', 'total'];
+    const id = window.location.pathname.slice(1);
+    async function loadReceipts() {
+      const response = await fetch('/api/' + id); 
+      receipt = await response.json();
+      renderTable(receipt);
+    }
+    
+    function renderTable(receipt) {
+      const generalFields = ['store', 'date', 'shipping', 'total', ];
       generalFields.forEach(key => {
-        if (data[key] !== undefined) {
+        if (receipt[key] !== undefined) {
           const label = document.createElement('label');
           label.textContent = key;
           const input = document.createElement('input');
           input.name = key;
-          input.value = data[key];
+          input.value = receipt[key];
           formFields.appendChild(label);
           formFields.appendChild(input);
           formFields.appendChild(document.createElement('br'));
-          if (key == 'id') {
-              label.style.display = 'none';
-              input.style.display = 'none';
-          }
         }
       });
-  
-      // Work-related checkbox
+      
       const workLabel = document.createElement('label');
       workLabel.textContent = 'Work Related';
       const workCheckbox = document.createElement('input');
@@ -72,8 +61,8 @@
       itemsContainer.id = 'itemsContainer';
       formFields.appendChild(itemsContainer);
   
-      if (Array.isArray(data.items)) {
-        data.items.forEach(item => addItemRow(item));
+      if (Array.isArray(receipt.items)) {
+        receipt.items.forEach(item => addItemRow(item));
       }
   
       // Add "Add Item" button
@@ -84,7 +73,8 @@
       formFields.appendChild(addButton);
   
       dynamicForm.style.display = 'block';
-    };
+    }
+    let itemsContainer;
   
     function addItemRow(item = {}) {
       const itemRow = document.createElement('div');
@@ -107,6 +97,8 @@
   
       itemsContainer.appendChild(itemRow);
     }
+    
+    loadReceipts();
   
     dynamicForm.onsubmit = async (e) => {
       e.preventDefault();
@@ -137,7 +129,7 @@
         return item;
       });
   
-      await fetch('/submit', {
+      await fetch('/api/update/'+ id, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jsonObject)
@@ -145,6 +137,8 @@
   
       alert("Data submitted to database!");
     };
+    
+    
   </script>
 
 </body>

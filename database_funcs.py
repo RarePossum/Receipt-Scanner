@@ -1,4 +1,5 @@
 import sqlite3
+import json
 
 def db_establish():
     con = sqlite3.connect("db.sqlite3")
@@ -23,11 +24,10 @@ def add_file(id, type, file, scan):
     con.commit()
     con.close()
     
-def add_receipt(form_data):
+def add_receipt(form_data, id):
     con = sqlite3.connect("db.sqlite3")
     cur = con.cursor()
     
-    id = form_data["id"]
     merchant = form_data["store"]
     date = form_data["date"]
     total = form_data["total"]
@@ -35,8 +35,9 @@ def add_receipt(form_data):
     if form_data["work_related"]:
         is_work = 1
     
-    del form_data['id']
-    data = (id, merchant, date, total, is_work, str(form_data))
+    if 'id' in form_data.keys():
+        del form_data['id']
+    data = (id, merchant, date, total, is_work, json.dumps(form_data))
     
     query = """
     INSERT INTO receipts (id, merchant, date, total, is_work, receipt)
@@ -82,3 +83,35 @@ def get_receipts():
             }
             for row in rows
         ]
+        
+def single_receipt(id):
+    con = sqlite3.connect("db.sqlite3")
+    cur = con.cursor()
+    
+    query = "SELECT receipt FROM receipts where id = ?"
+    cur.execute(query, [id])
+    rows = cur.fetchall()
+        
+    con.commit()
+    con.close()
+    return rows[0][0]
+    
+def delete_receipt(id):
+    con = sqlite3.connect("db.sqlite3")
+    cur = con.cursor()
+    
+    query = "DROP TABLE '" + id + "'"
+    cur.execute(query)
+    
+    query = "DELETE FROM receipts WHERE id = ?"
+    cur.execute(query, [id])
+        
+    con.commit()
+    con.close()
+    
+def purge():
+    con = sqlite3.connect("db.sqlite3")
+    cur = con.cursor()
+    
+    query = "DELETE FROM files WHERE id NOT IN (SELECT id FROM receipts)"
+    return

@@ -64,17 +64,26 @@ class Server(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                filepath = os.path.join(filepath, "index.html")
+                filepath = os.path.join(filepath, "receipt.html")
                 f = open(filepath, "rb")
                 self.wfile.write(f.read(32768))
                     
         elif re.match("\\/api\\/[0-9a-f]{8}a", self.path):
+            id = self.path[-9:]
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()  
+            receipt = json.loads(database_funcs.single_receipt(id))
+            self.wfile.write(json.dumps(receipt).encode("utf-8"))
+             
+        
+        elif re.match("\\/api\\/delete\\/[0-9a-f]{8}a", self.path):
+            id = self.path[-9:]
+            database_funcs.delete_receipt(id)
+            database_funcs.purge()
             self.send_response(200)
             self.send_header("Content-type", "text/html")
-            self.end_headers()
-            filepath = os.path.join(filepath, "index.html")
-            f = open(filepath, "rb")
-            self.wfile.write(f.read(32768))
+            self.end_headers()  
                 
         else:
             self.send_response(404)
@@ -123,9 +132,19 @@ class Server(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             form_data = json.loads(post_data.decode("utf-8"))
             database_funcs.create_itemised_receipt(form_data["items"], form_data["id"])
-            database_funcs.add_receipt(form_data)
+            database_funcs.add_receipt(form_data, form_data["id"])
+            database_funcs.purge()
             
+            self.send_response(200)
             
+        elif re.match("\\/api\\/update\\/[0-9a-f]{8}a", self.path):
+            id = self.path[-9:]
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            form_data = json.loads(post_data.decode("utf-8"))
+            database_funcs.delete_receipt(id)
+            database_funcs.create_itemised_receipt(form_data["items"], id)
+            database_funcs.add_receipt(form_data, id)
             self.send_response(200)
         
             
