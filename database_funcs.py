@@ -90,11 +90,13 @@ def single_receipt(id):
     
     query = "SELECT receipt FROM receipts where id = ?"
     cur.execute(query, [id])
-    rows = cur.fetchall()
+    r = cur.fetchone()
         
     con.commit()
     con.close()
-    return rows[0][0]
+    if r:
+        return r
+    return None
     
 def delete_receipt(id):
     con = sqlite3.connect("db.sqlite3")
@@ -114,4 +116,19 @@ def purge():
     cur = con.cursor()
     
     query = "DELETE FROM files WHERE id NOT IN (SELECT id FROM receipts)"
-    return
+    cur.execute(query)
+    con.commit()
+    con.close()
+    
+def get_file(id):
+    con = sqlite3.connect("db.sqlite3")
+    cur = con.cursor()
+    
+    query = "SELECT file_type, file FROM files WHERE id = ?"
+    cur.execute(query, [id])
+    con.commit()
+    con.close()
+    row = cur.fetchone()
+    if row:
+        return row[0], row[1]
+    return None, None

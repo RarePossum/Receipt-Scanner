@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Upload and Submit</title>
-</head>
+    <head>
+        <title>Upload and Submit</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            input, select { margin: 5px; padding: 5px; }
+            .filter-group { margin-bottom: 10px; }
+        </style>
+    </head>
 <body>
+  <a href = "/">Return Home</a>
   <h1>Upload File</h1>
   <form id="uploadForm">
     <input type="file" name="file" id="fileInput">
@@ -56,7 +65,7 @@
       const workCheckbox = document.createElement('input');
       workCheckbox.type = 'checkbox';
       workCheckbox.name = 'work_related';
-      if (receipt['work_related']) {
+      if (data['work_related']) {
           workCheckbox.checked = true;
       }
       formFields.appendChild(workLabel);

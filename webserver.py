@@ -45,11 +45,10 @@ class Server(BaseHTTPRequestHandler):
             self.wfile.write(f.read(32768))
                 
         elif self.path == "/api/receipts":
+            receipts = database_funcs.get_receipts()
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()  
-                
-            receipts = database_funcs.get_receipts()
             self.wfile.write(json.dumps(receipts).encode("utf-8"))
                 
         elif self.path == "/":
@@ -70,10 +69,16 @@ class Server(BaseHTTPRequestHandler):
                     
         elif re.match("\\/api\\/[0-9a-f]{8}a", self.path):
             id = self.path[-9:]
+            data = database_funcs.single_receipt(id)[0]
+            if not data:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"Unable to locate receipt")
+                return
+            receipt = json.loads(data)
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()  
-            receipt = json.loads(database_funcs.single_receipt(id))
             self.wfile.write(json.dumps(receipt).encode("utf-8"))
              
         
@@ -84,6 +89,21 @@ class Server(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()  
+            
+        elif re.match("\\/api\\/download\\/[0-9a-f]{8}a", self.path):
+            id = self.path[-9:]
+            file_type, file_data = database_funcs.get_file(id)
+            if not file_data:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"Missing file data")
+                return
+                
+            self.send_response(200)
+            self.send_header("Content-Type", f"application/octet-stream")
+            self.send_header("Content-Disposition", f'attachment; filename="{id}.{file_type}"')
+            self.end_headers()
+            self.wfile.write(file_data)
                 
         else:
             self.send_response(404)
@@ -128,6 +148,7 @@ class Server(BaseHTTPRequestHandler):
                 self.send_response(415)
         
         elif self.path == "/submit":
+            
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             form_data = json.loads(post_data.decode("utf-8"))

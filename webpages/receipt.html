@@ -1,17 +1,25 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Receipt Informatiopn</title>
-</head>
+    <head>
+        <title>Upload and Submit</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            input, select { margin: 5px; padding: 5px; }
+            .filter-group { margin-bottom: 10px; }
+        </style>
+    </head>
 <body>
-
-  <h2>Receipt</h2>
+  <a href = "/">Return Home</a>
+  <h1>Receipt</h1>
   <form id="dynamicForm" style="display:none;">
     <div id="formFields"></div>
     <button type="submit">Update</button>
   </form>
-  <button type="delete">Delete</button>
-  <button type="download">Download</button>
+  <button type="delete" onclick="del()">Delete</button>
+  <button type="download" onclick="download()">Download</button>
 
   <script>
     const uploadForm = document.getElementById('uploadForm');
@@ -21,8 +29,45 @@
     const id = window.location.pathname.slice(1);
     async function loadReceipts() {
       const response = await fetch('/api/' + id); 
+      if (!response.ok) {
+            alert('Unable to find receipt');
+            return;
+        }
       receipt = await response.json();
       renderTable(receipt);
+    }
+    
+    async function del() {
+        const response = await fetch('/api/delete/' + id); 
+        if (!response.ok) {
+            alert('Delete failed');
+            return;
+        }
+    }
+    
+    async function download() {
+        const response = await fetch('/api/download/' + id); 
+        
+        if (!response.ok) {
+            alert('Download failed');
+            return;
+        }
+        
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = id + ".bin";
+        if (contentDisposition && contentDisposition.includes("filename=")) {
+            filename = contentDisposition.split("filename=")[1].replace(/"/g, '');
+        }
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
     }
     
     function renderTable(receipt) {
@@ -137,6 +182,7 @@
   
       alert("Data submitted to database!");
     };
+    
     
     
   </script>
