@@ -7,7 +7,12 @@ import re
 import uuid
 import cgi # import legacy-cgi for python 3.13 onwards
 import magic
-from docling.document_converter import DocumentConverter
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import (
+    PdfPipelineOptions,
+    RapidOcrOptions,
+)
+from docling.document_converter import DocumentConverter, PdfFormatOption
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 hostName = "localhost"
@@ -22,7 +27,18 @@ class Server(BaseHTTPRequestHandler):
         torch_dtype="auto"  
     )
         
-    converter = DocumentConverter()
+    pipeline_options = PdfPipelineOptions()
+    
+    ocr_options = RapidOcrOptions(force_full_page_ocr=True)
+    pipeline_options.ocr_options = ocr_options
+
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.IMAGE: PdfFormatOption(
+                pipeline_options=pipeline_options,
+            )
+        }
+    )
     
     def do_GET(self):
         
